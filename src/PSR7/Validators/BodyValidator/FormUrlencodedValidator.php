@@ -16,6 +16,7 @@ use League\OpenAPIValidation\PSR7\Validators\ValidationStrategy;
 use League\OpenAPIValidation\Schema\Exception\SchemaMismatch;
 use League\OpenAPIValidation\Schema\Exception\TypeMismatch;
 use League\OpenAPIValidation\Schema\SchemaValidator;
+use League\OpenAPIValidation\Schema\CheckTypeHelper;
 use Psr\Http\Message\MessageInterface;
 
 use function parse_str;
@@ -49,7 +50,7 @@ class FormUrlencodedValidator implements MessageValidator
         $schema = $this->mediaTypeSpec->schema;
 
         // 0. Multipart body message MUST be described with a set of object properties
-        if ($schema->type !== CebeType::OBJECT) {
+        if (!CheckTypeHelper::schemaIsTypeOf($schema, CebeType::OBJECT)) {
             throw TypeMismatch::becauseTypeDoesNotMatch(['object'], $schema->type);
         }
 

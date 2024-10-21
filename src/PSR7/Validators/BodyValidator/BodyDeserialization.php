@@ -8,6 +8,7 @@ use cebe\openapi\spec\Schema;
 use cebe\openapi\spec\Type as CebeType;
 use League\OpenAPIValidation\PSR7\Validators\SerializedParameter;
 use League\OpenAPIValidation\Schema\Exception\SchemaMismatch;
+use League\OpenAPIValidation\Schema\CheckTypeHelper;
 
 trait BodyDeserialization
 {
@@ -20,7 +21,7 @@ trait BodyDeserialization
      */
     protected function deserializeBody(array $body, Schema $schema): array
     {
-        if ($schema->type !== CebeType::OBJECT) {
+        if (!CheckTypeHelper::schemaIsTypeOf($schema, CebeType::OBJECT)) {
             return $body;
         }
 

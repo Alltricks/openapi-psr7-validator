@@ -11,6 +11,7 @@ use League\OpenAPIValidation\Schema\Exception\ContentTypeMismatch;
 use League\OpenAPIValidation\Schema\Exception\InvalidSchema;
 use League\OpenAPIValidation\Schema\Exception\SchemaMismatch;
 use League\OpenAPIValidation\Schema\Exception\TypeMismatch;
+use League\OpenAPIValidation\Schema\CheckTypeHelper;
 use Respect\Validation\Validator;
 use Throwable;
 
@@ -304,7 +305,7 @@ final class SerializedParameter
 
     protected function getChildSchema(CebeSchema $schema, string $key): ?CebeSchema
     {
-        if ($schema->type === CebeType::OBJECT) {
+        if (CheckTypeHelper::schemaIsTypeOf($schema, CebeType::OBJECT)) {
             if (($schema->properties[$key] ?? false) && $schema->properties[$key] instanceof CebeSchema) {
                 return $schema->properties[$key];
             }
@@ -314,7 +315,7 @@ final class SerializedParameter
             }
         }
 
-        if ($schema->type === CebeType::ARRAY && $schema->items instanceof CebeSchema) {
+        if (CheckTypeHelper::schemaIsTypeOf($schema, CebeType::ARRAY) && $schema->items instanceof CebeSchema) {
             return $schema->items;
         }
 

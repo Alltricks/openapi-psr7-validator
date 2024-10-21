@@ -47,7 +47,7 @@ class OneOf extends BaseKeyword
      *
      * @throws KeywordMismatch
      */
-    public function validate($data, array $oneOf): void
+    public function validate($data, array $oneOf): CebeSchema
     {
         try {
             Validator::arrayVal()->assert($oneOf);
@@ -71,7 +71,7 @@ class OneOf extends BaseKeyword
         }
 
         if (count($validSchemas) === 1) {
-            return;
+            return $validSchemas[0];
         }
 
         if (count($validSchemas) < 1) {

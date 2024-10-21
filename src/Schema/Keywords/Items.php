@@ -9,6 +9,7 @@ use League\OpenAPIValidation\Schema\BreadCrumb;
 use League\OpenAPIValidation\Schema\Exception\InvalidSchema;
 use League\OpenAPIValidation\Schema\Exception\SchemaMismatch;
 use League\OpenAPIValidation\Schema\SchemaValidator;
+use League\OpenAPIValidation\Schema\CheckTypeHelper;
 use Respect\Validation\Validator;
 use Throwable;
 
@@ -46,7 +47,7 @@ class Items extends BaseKeyword
             throw InvalidSchema::becauseDefensiveSchemaValidationFailed($e);
         }
 
-        if (! isset($this->parentSchema->type) || ($this->parentSchema->type !== 'array')) {
+        if (! isset($this->parentSchema->type) || !CheckTypeHelper::schemaIsTypeOf($this->parentSchema, 'array')) {
             throw new InvalidSchema(sprintf('items MUST be present if the type is array'));
         }
 

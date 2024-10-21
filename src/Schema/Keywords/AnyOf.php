@@ -25,7 +25,7 @@ class AnyOf extends BaseKeyword
     {
         parent::__construct($parentSchema);
         $this->validationDataType = $type;
-        $this->dataBreadCrumb     = $breadCrumb;
+        $this->dataBreadCrumb = $breadCrumb;
     }
 
     /**
@@ -41,10 +41,14 @@ class AnyOf extends BaseKeyword
      * @param mixed        $data
      * @param CebeSchema[] $anyOf
      *
+     * @return CebeSchema[]
+     *
      * @throws KeywordMismatch
      */
-    public function validate($data, array $anyOf): void
+    public function validate($data, array $anyOf): array
     {
+        $matched = [];
+
         try {
             Validator::arrayVal()->assert($anyOf);
             Validator::each(Validator::instance(CebeSchema::class))->assert($anyOf);
@@ -58,18 +62,21 @@ class AnyOf extends BaseKeyword
             $schemaValidator = new SchemaValidator($this->validationDataType);
             try {
                 $schemaValidator->validate($data, $schema, $this->dataBreadCrumb);
-
-                return;
+                $matched[] = $schema;
             } catch (SchemaMismatch $e) {
                 $innerExceptions[] = $e;
             }
+        }
+
+        if (!empty($matched)) {
+            return $matched;
         }
 
         throw NotEnoughValidSchemas::fromKeywordWithInnerExceptions(
             'anyOf',
             $data,
             $innerExceptions,
-            'Data must match at least one schema'
+            'Data must match at least one schema',
         );
     }
 }

@@ -28,18 +28,21 @@ use League\OpenAPIValidation\Schema\Keywords\Pattern;
 use League\OpenAPIValidation\Schema\Keywords\Properties;
 use League\OpenAPIValidation\Schema\Keywords\Required;
 use League\OpenAPIValidation\Schema\Keywords\Type;
+use League\OpenAPIValidation\Schema\Keywords\UnevaluatedProperties;
 use League\OpenAPIValidation\Schema\Keywords\UniqueItems;
+use League\OpenAPIValidation\Schema\CheckTypeHelper;
 
+use function array_push;
 use function count;
 use function is_array;
+use function str_starts_with;
 
 // This will load a whole schema and data to validate if one matches another
 final class SchemaValidator implements Validator
 {
     // How to treat the data (affects writeOnly/readOnly keywords)
-    public const VALIDATE_AS_REQUEST  = 0;
+    public const VALIDATE_AS_REQUEST = 0;
     public const VALIDATE_AS_RESPONSE = 1;
-
     /** @var int strategy of validation - Request or Response (affected by writeOnly/readOnly keywords) */
     private $validationStrategy;
 
@@ -53,20 +56,40 @@ final class SchemaValidator implements Validator
     /** {@inheritdoc} */
     public function validate($data, CebeSchema $schema, ?BreadCrumb $breadCrumb = null): void
     {
+        $oneOrAnyOfMatched = [];
         $breadCrumb = $breadCrumb ?? new BreadCrumb();
 
         try {
-            // These keywords are not part of the JSON Schema at all (new to OAS)
-            (new Nullable($schema))->validate($data, $schema->nullable ?? true);
+            $openApiVersion = $schema->getBaseDocument()->openapi ?? '3.1.0';
 
-            // We don't want to validate any more if the value is a valid Null
-            if ($data === null) {
-                return;
-            }
+            if (str_starts_with($openApiVersion, '3.1.')) {
+                // The following properties are taken from the JSON Schema definition but their definitions were adjusted to the OpenAPI Specification.
+                if (isset($schema->type)) {
+                    (new Type($schema))->validate($data, $schema->type, $schema->format);
+                    if ($data === null) {
+                        return;
+                    }
+                }
 
-            // The following properties are taken from the JSON Schema definition but their definitions were adjusted to the OpenAPI Specification.
-            if (isset($schema->type)) {
-                (new Type($schema))->validate($data, $schema->type, $schema->format);
+                // We don't want to validate any more if the value is a valid Null
+                if ($data === null) {
+                    $this->validateCollections($data, $schema, $breadCrumb);
+
+                    return;
+                }
+            } else {
+                // These keywords are not part of the JSON Schema at all (new to OAS)
+                (new Nullable($schema))->validate($data, $schema->nullable ?? true);
+
+                // We don't want to validate any more if the value is a valid Null
+                if ($data === null) {
+                    return;
+                }
+
+                // The following properties are taken from the JSON Schema definition but their definitions were adjusted to the OpenAPI Specification.
+                if (isset($schema->type)) {
+                    (new Type($schema))->validate($data, $schema->type, $schema->format);
+                }
             }
 
             // This keywords come directly from JSON Schema Validation, they are the same as in JSON schema
@@ -129,8 +152,10 @@ final class SchemaValidator implements Validator
                 (new Items($schema, $this->validationStrategy, $breadCrumb))->validate($data, $schema->items);
             }
 
+            $collectionsMatched = $this->validateCollections($data, $schema, $breadCrumb);
+
             if (
-                $schema->type === CebeType::OBJECT
+                CheckTypeHelper::schemaIsTypeOf($schema, CebeType::OBJECT)
                 || (isset($schema->properties) && is_array($data) && ArrayHelper::isAssoc($data))
             ) {
                 $additionalProperties = $schema->additionalProperties ?? null; // defaults to true
@@ -138,21 +163,16 @@ final class SchemaValidator implements Validator
                     (new Properties($schema, $this->validationStrategy, $breadCrumb))->validate(
                         $data,
                         $schema->properties,
-                        $additionalProperties
+                        $additionalProperties,
                     );
                 }
-            }
 
-            if (isset($schema->allOf) && count($schema->allOf)) {
-                (new AllOf($schema, $this->validationStrategy, $breadCrumb))->validate($data, $schema->allOf);
-            }
-
-            if (isset($schema->oneOf) && count($schema->oneOf)) {
-                (new OneOf($schema, $this->validationStrategy, $breadCrumb))->validate($data, $schema->oneOf);
-            }
-
-            if (isset($schema->anyOf) && count($schema->anyOf)) {
-                (new AnyOf($schema, $this->validationStrategy, $breadCrumb))->validate($data, $schema->anyOf);
+                if (isset($schema->unevaluatedProperties) && $schema->unevaluatedProperties === false) {
+                    (new UnevaluatedProperties($schema))->validate(
+                        $data,
+                        $collectionsMatched,
+                    );
+                }
             }
 
             if (isset($schema->not)) {
@@ -164,5 +184,28 @@ final class SchemaValidator implements Validator
 
             throw $e;
         }
+    }
+
+    /**
+     * @return CebeSchema[]
+     */
+    public function validateCollections($data, CebeSchema $schema, ?BreadCrumb $breadCrumb = null): array
+    {
+        $allMatched = [];
+        if (isset($schema->allOf) && count($schema->allOf)) {
+            (new AllOf($schema, $this->validationStrategy, $breadCrumb))->validate($data, $schema->allOf);
+            array_push($allMatched, ...$schema->allOf);
+        }
+
+        if (isset($schema->oneOf) && count($schema->oneOf)) {
+            $allMatched[] = (new OneOf($schema, $this->validationStrategy, $breadCrumb))->validate($data, $schema->oneOf);
+        }
+
+        if (isset($schema->anyOf) && count($schema->anyOf)) {
+            $matched = (new AnyOf($schema, $this->validationStrategy, $breadCrumb))->validate($data, $schema->anyOf);
+            array_push($allMatched, ...$matched);
+        }
+
+        return $allMatched;
     }
 }

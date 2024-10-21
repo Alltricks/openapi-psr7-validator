@@ -21,6 +21,7 @@ use League\OpenAPIValidation\PSR7\Validators\ValidationStrategy;
 use League\OpenAPIValidation\Schema\Exception\SchemaMismatch;
 use League\OpenAPIValidation\Schema\Exception\TypeMismatch;
 use League\OpenAPIValidation\Schema\SchemaValidator;
+use League\OpenAPIValidation\Schema\CheckTypeHelper;
 use Psr\Http\Message\MessageInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UploadedFileInterface;
@@ -76,7 +77,7 @@ class MultipartValidator implements MessageValidator
         $schema = $this->mediaTypeSpec->schema;
 
         // 0. Multipart body message MUST be described with a set of object properties
-        if ($schema->type !== CebeType::OBJECT) {
+        if (!CheckTypeHelper::schemaIsTypeOf($schema, CebeType::OBJECT)) {
             throw TypeMismatch::becauseTypeDoesNotMatch(['object'], $schema->type);
         }
 
@@ -202,13 +203,13 @@ class MultipartValidator implements MessageValidator
             // for other primitive types – text/plain; for object - application/json; for array – the default is defined based on the inner type.
             // The value can be a specific media type (e.g. application/json), a wildcard media type (e.g. image/*),
             // or a comma-separated list of the two types.
-            if ($partSchema->type === 'string') {
+            if (CheckTypeHelper::schemaIsTypeOf($partSchema, 'string')) {
                 if (in_array($partSchema->format, ['binary', 'base64'])) {
                     $contentType = 'application/octet-stream';
                 } else {
                     $contentType = 'text/plain';
                 }
-            } elseif (in_array($partSchema->type, ['object', 'array'])) {
+            } elseif (CheckTypeHelper::schemaIsTypeOf($partSchema, 'object') || CheckTypeHelper::schemaIsTypeOf($partSchema, 'array')) {
                 $contentType = 'application/json';
             }
         }
