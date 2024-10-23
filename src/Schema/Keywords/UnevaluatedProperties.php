@@ -8,16 +8,16 @@ use cebe\openapi\spec\Schema as CebeSchema;
 use League\OpenAPIValidation\Schema\Exception\KeywordMismatch;
 
 use function array_diff;
+use function array_keys;
 use function implode;
 use function sprintf;
 
 class UnevaluatedProperties extends BaseKeyword
 {
     /**
-     * @param mixed        $data
      * @param CebeSchema[] $collectionsMatched
      */
-    public function validate($data, array $collectionsMatched): void
+    public function validate(mixed $data, array $collectionsMatched): void
     {
         $allProperties = $this->getProperties($this->parentSchema, $collectionsMatched);
         $unexpectedProps = array_diff(array_keys($data), $allProperties);
@@ -44,7 +44,7 @@ class UnevaluatedProperties extends BaseKeyword
             }
         }
         foreach ($collectionsMatched as $matched) {
-            $allProperties = $allProperties + $this->getProperties($matched);
+            $allProperties = $allProperties + $this->getProperties($matched, $schema->allOf ?? []);
         }
 
         return $allProperties;
